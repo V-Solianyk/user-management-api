@@ -5,7 +5,11 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Pattern;
 import java.time.LocalDate;
+import lombok.Getter;
+import lombok.Setter;
 
+@Getter
+@Setter
 public class UserRequestDto {
     @NotBlank(message = "Email is required")
     @Email(message = "Invalid email format")
