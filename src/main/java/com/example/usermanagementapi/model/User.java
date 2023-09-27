@@ -1,4 +1,4 @@
-package com.example.UserManagementAPI.model;
+package com.example.usermanagementapi.model;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -8,7 +8,7 @@ import jakarta.persistence.Table;
 import java.time.LocalDate;
 
 @Entity
-@Table( name = "users")
+@Table(name = "users")
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
