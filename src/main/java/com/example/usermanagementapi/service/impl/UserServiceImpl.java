@@ -5,6 +5,7 @@ import com.example.usermanagementapi.repository.UserRepository;
 import com.example.usermanagementapi.service.UserService;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.NoSuchElementException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
@@ -19,17 +20,21 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public User create(User user) {
-        LocalDate minimumRegistrationAge = LocalDate.now().minusYears(userAgeLimit);
-        if (user.getBirthDate().isBefore(minimumRegistrationAge)) { //todo think about months
-            return userRepository.save(user);
+        if (userRepository.findUserByEmail(user.getEmail()).isEmpty()) {
+            LocalDate minimumRegistrationAge = LocalDate.now().minusYears(userAgeLimit);
+            if (user.getBirthDate().isBefore(minimumRegistrationAge)) {
+                return userRepository.save(user);
+            }
+            throw new RuntimeException("Can't register the user who is younger than 18 years old");
         }
-        throw new RuntimeException("Can't register the user who is younger than 18 years old");
+        throw new RuntimeException("A user with this email already exists.");
     }
 
     @Override
     public User get(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("User not found with this id: " + id));
+                .orElseThrow(() -> new NoSuchElementException("User not found with"
+                        + " this id: " + id));
     }
 
     @Override
@@ -43,9 +48,9 @@ public class UserServiceImpl implements UserService {
             oldUser.setAddress(user.getAddress());
         }
         if (user.getPhoneNumber() != null) {
-            oldUser.setAddress(user.getPhoneNumber());
+            oldUser.setPhoneNumber(user.getPhoneNumber());
         }
-        return userRepository.save(oldUser);
+        return userRepository.save(user);
     }
 
     @Override
@@ -55,7 +60,8 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public List<User> getAllUsersByPriceBetween(LocalDate from, LocalDate to, PageRequest pageRequest) {
+    public List<User> getAllUsersByBirthDateBetween(LocalDate from, LocalDate to,
+                                                    PageRequest pageRequest) {
         return userRepository.findByBirthDateBetween(from, to, pageRequest);
     }
 }

@@ -55,8 +55,8 @@ public class UserController {
     }
 
     @PatchMapping("/{id}")
-    ResponseEntity<UserResponseDto> updateSomeFields(@PathVariable Long id,
-                                                     @RequestBody @Valid UserRequestDto userRequestDto) {
+    ResponseEntity<UserResponseDto> updateSomeFields(
+            @PathVariable Long id, @RequestBody @Valid UserRequestDto userRequestDto) {
         User user = requestDtoMapper.mapToModel(userRequestDto);
         return ResponseEntity.ok(responseDtoMapper.mapToDto(userService.update(user, id)));
     }
@@ -75,7 +75,7 @@ public class UserController {
             @RequestParam LocalDate to) {
         Sort sort = SortUtils.createSort(sortBy);
         PageRequest pageRequest = PageRequest.of(page, count, sort);
-        List<User> users = userService.getAllUsersByPriceBetween(from, to, pageRequest);
+        List<User> users = userService.getAllUsersByBirthDateBetween(from, to, pageRequest);
         return ResponseEntity.ok(users.stream()
                 .map(responseDtoMapper::mapToDto)
                 .collect(Collectors.toList()));
