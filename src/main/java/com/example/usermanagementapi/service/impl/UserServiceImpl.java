@@ -3,9 +3,9 @@ package com.example.usermanagementapi.service.impl;
 import com.example.usermanagementapi.model.User;
 import com.example.usermanagementapi.repository.UserRepository;
 import com.example.usermanagementapi.service.UserService;
+import jakarta.persistence.EntityNotFoundException;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.NoSuchElementException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
@@ -25,15 +25,16 @@ public class UserServiceImpl implements UserService {
             if (user.getBirthDate().isBefore(minimumRegistrationAge)) {
                 return userRepository.save(user);
             }
-            throw new RuntimeException("Can't register the user who is younger than 18 years old");
+            throw new IllegalArgumentException("Can't register the user who is younger"
+                    + " than 18 years old");
         }
-        throw new RuntimeException("A user with this email already exists.");
+        throw new IllegalArgumentException("A user with this email already exists.");
     }
 
     @Override
     public User get(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("User not found with"
+                .orElseThrow(() -> new EntityNotFoundException("User not found with"
                         + " this id: " + id));
     }
 
