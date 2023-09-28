@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
 import com.example.usermanagementapi.dto.UserRequestDto;
 import com.example.usermanagementapi.dto.UserResponseDto;
 import com.example.usermanagementapi.mapper.UserRequestDtoMapper;
@@ -101,12 +102,12 @@ class UserControllerTest {
 
     @Test
     void getAllByBirthDateBetween() {
-        LocalDate from = LocalDate.of(1998, 1, 1);
-        LocalDate to = LocalDate.of(2000, 1, 1);
+        final LocalDate from = LocalDate.of(1998, 1, 1);
+        final LocalDate to = LocalDate.of(2000, 1, 1);
         int page = 0;
         int count = 10;
-        String sortBy = "id";
-        PageRequest pageRequest = PageRequest.of(page, count, SortUtils.createSort(sortBy));
+        final String sortBy = "id";
+        final PageRequest pageRequest = PageRequest.of(page, count, SortUtils.createSort(sortBy));
 
         User secondUser = new User();
         secondUser.setId(2L);
