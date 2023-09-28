@@ -14,5 +14,5 @@ public interface UserService {
 
     void delete(Long id);
 
-    List<User> getAllUsersByPriceBetween(LocalDate from, LocalDate to, PageRequest pageRequest);
+    List<User> getAllUsersByBirthDateBetween(LocalDate from, LocalDate to, PageRequest pageRequest);
 }
