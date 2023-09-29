@@ -81,13 +81,13 @@ class UserControllerTest {
     }
 
     @Test
-    void updateSomeFields_ok() {
+    void particularUpdateUser_ok() {
         Long id = 1L;
         when(requestDtoMapper.mapToModel(userRequestDto)).thenReturn(user);
-        when(userService.update(user, id)).thenReturn(user);
+        when(userService.particularUpdateUser(user, id)).thenReturn(user);
         when(responseDtoMapper.mapToDto(user)).thenReturn(userResponseDto);
         ResponseEntity<UserResponseDto> responseEntity = userController
-                .update(id, userRequestDto);
+                .partiallyUpdateUser(id, userRequestDto);
         assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
         assertEquals(userResponseDto, responseEntity.getBody());
     }

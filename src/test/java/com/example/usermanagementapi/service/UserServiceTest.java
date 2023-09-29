@@ -18,26 +18,15 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.PropertySource;
 import org.springframework.data.domain.PageRequest;
 
-@SpringBootTest
-@PropertySource("classpath:application.properties")
 class UserServiceTest {
+    private static final int USER_AGE_LIMIT = 18;
     private static final LocalDate CORRECT_BIRTHDAY_DATE = LocalDate.of(1995, 5, 2);
-    private static final LocalDate INCORRECT_BIRTHDAY_DATE = LocalDate.of(2018, 5, 2);
+    private static final LocalDate BIRTHDAY_DATE_LESS_THAN_LIMIT = LocalDate.of(2018, 5, 2);
     private User user;
     private UserRepository userRepository;
     private UserService userService;
-    private final int userAgeLimit;
-
-    @Autowired
-    public UserServiceTest(@Value("${user.age.limit}") int userAgeLimit) {
-        this.userAgeLimit = userAgeLimit;
-    }
 
     @BeforeEach
     void setUp() {
@@ -48,11 +37,11 @@ class UserServiceTest {
         user.setEmail("vladDuncan@gmail.com");
         user.setBirthDate(CORRECT_BIRTHDAY_DATE);
         userRepository = Mockito.mock(UserRepository.class);
-        userService = new UserServiceImpl(userAgeLimit, userRepository);
+        userService = new UserServiceImpl(USER_AGE_LIMIT, userRepository);
     }
 
     @Test
-    void create_ok() {
+    void create_birthdayDateIsBeforeLimit_ok() {
         when(userRepository.save(user)).thenReturn(user);
         User actualUser = userService.create(user);
         assertEquals(1L, actualUser.getId());
@@ -63,19 +52,20 @@ class UserServiceTest {
     }
 
     @Test
-    void create_withAgeLessThanAvailable_notOk() {
-        String message = "Can't register the user who is younger than 18 years old";
-        user.setBirthDate(INCORRECT_BIRTHDAY_DATE);
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-                () -> userService.create(user));
-        assertEquals(message, exception.getMessage());
+    void create_birthdayDateIsEqualLimit_ok() {
+        user.setBirthDate(LocalDate.now().minusYears(USER_AGE_LIMIT));
+        when(userRepository.save(user)).thenReturn(user);
+        User actualUser = userService.create(user);
+        assertEquals(1L, actualUser.getId());
+        assertEquals("Vlad", actualUser.getFirstName());
+        assertEquals("Duncan", actualUser.getLastName());
+        assertEquals("vladDuncan@gmail.com", actualUser.getEmail());
     }
 
     @Test
-    void create_withAlreadyExistUser_notOk() {
-        String existEmail = "vladDuncan@gmail.com";
-        String message = "A user with this email already exists.";
-        when(userRepository.findUserByEmail(existEmail)).thenReturn(Optional.of(user));
+    void create_withAgeLessThanAvailable_notOk() {
+        String message = "Can't register the user who is younger than 18 years old";
+        user.setBirthDate(BIRTHDAY_DATE_LESS_THAN_LIMIT);
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
                 () -> userService.create(user));
         assertEquals(message, exception.getMessage());
@@ -113,15 +103,10 @@ class UserServiceTest {
         updateUser.setBirthDate(CORRECT_BIRTHDAY_DATE);
         updateUser.setAddress("Mazepa 117, Ivano-Frankivsk, Ukraine");
         updateUser.setPhoneNumber("+380991102224");
-
         when(userRepository.findById(id)).thenReturn(Optional.of(user));
         userService.update(updateUser, id);
-        assertEquals(1L, user.getId());
-        assertEquals("Victor", user.getFirstName());
-        assertEquals("Don", user.getLastName());
-        assertEquals("VictorDon@gmail.com", user.getEmail());
-        assertEquals("Mazepa 117, Ivano-Frankivsk, Ukraine", user.getAddress());
-        assertEquals("+380991102224", user.getPhoneNumber());
+        verify(userRepository, times(1)).save(updateUser);
+        assertEquals(id, updateUser.getId());
     }
 
     @Test
@@ -137,7 +122,7 @@ class UserServiceTest {
     @Test
     void update_withAgeLessThanAvailable_notOk() {
         User newUser = new User();
-        newUser.setBirthDate(INCORRECT_BIRTHDAY_DATE);
+        newUser.setBirthDate(BIRTHDAY_DATE_LESS_THAN_LIMIT);
         newUser.setFirstName("Victor");
         newUser.setLastName("Don");
         newUser.setEmail("VictorDon@gmail.com");
@@ -146,6 +131,30 @@ class UserServiceTest {
         when(userRepository.findById(id)).thenReturn(Optional.of(user));
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
                 () -> userService.update(newUser, id));
+        assertEquals(message, exception.getMessage());
+    }
+
+    @Test
+    void particularUpdateUser_ok() {
+        Long id = 1L;
+        User particularUpdayeUser = new User();
+        particularUpdayeUser.setLastName("particularUpdateName");
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+        userService.particularUpdateUser(particularUpdayeUser, id);
+        assertEquals("Vlad", user.getFirstName());
+        assertEquals("particularUpdateName", user.getLastName());
+        assertEquals("vladDuncan@gmail.com", user.getEmail());
+    }
+
+    @Test
+    void particularUpdateUser_withAgeLessThanAvailable_notOk() {
+        Long id = 1L;
+        User particularUpdayeUser = new User();
+        particularUpdayeUser.setBirthDate(BIRTHDAY_DATE_LESS_THAN_LIMIT);
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+        String message = "Can't register the user who is younger than 18 years old";
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> userService.particularUpdateUser(particularUpdayeUser, id));
         assertEquals(message, exception.getMessage());
     }
 
@@ -162,7 +171,6 @@ class UserServiceTest {
     @Test
     void delete_ok() {
         Long id = 1L;
-        when(userRepository.findById(id)).thenReturn(Optional.of(user));
         assertDoesNotThrow(() -> userService.delete(id));
         verify(userRepository, times(1)).deleteById(id);
     }

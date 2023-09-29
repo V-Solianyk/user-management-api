@@ -55,10 +55,11 @@ public class UserController {
     }
 
     @PatchMapping("/{id}")
-    ResponseEntity<UserResponseDto> updateSomeFields(
-            @PathVariable Long id, @RequestBody @Valid UserRequestDto userRequestDto) {
+    ResponseEntity<UserResponseDto> partiallyUpdateUser(
+            @PathVariable Long id, @RequestBody UserRequestDto userRequestDto) {
         User user = requestDtoMapper.mapToModel(userRequestDto);
-        return ResponseEntity.ok(responseDtoMapper.mapToDto(userService.update(user, id)));
+        return ResponseEntity.ok(responseDtoMapper.mapToDto(userService
+                .particularUpdateUser(user, id)));
     }
 
     @DeleteMapping("/{id}")
@@ -73,11 +74,18 @@ public class UserController {
             @RequestParam(defaultValue = "0") Integer page,
             @RequestParam(defaultValue = "id") String sortBy, @RequestParam LocalDate from,
             @RequestParam LocalDate to) {
+        checkInputDate(from, to);
         Sort sort = SortUtils.createSort(sortBy);
         PageRequest pageRequest = PageRequest.of(page, count, sort);
         List<User> users = userService.getAllUsersByBirthDateBetween(from, to, pageRequest);
         return ResponseEntity.ok(users.stream()
                 .map(responseDtoMapper::mapToDto)
                 .collect(Collectors.toList()));
+    }
+
+    private void checkInputDate(LocalDate from, LocalDate to) {
+        if (from.isAfter(to)) {
+            throw new IllegalArgumentException("\"from\" date should be before \"to\" date.");
+        }
     }
 }
