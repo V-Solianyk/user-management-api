@@ -81,7 +81,7 @@ class UserControllerTest {
     }
 
     @Test
-    void updateSomeFields() {
+    void updateSomeFields_ok() {
         Long id = 1L;
         when(requestDtoMapper.mapToModel(userRequestDto)).thenReturn(user);
         when(userService.update(user, id)).thenReturn(user);
@@ -93,7 +93,7 @@ class UserControllerTest {
     }
 
     @Test
-    void delete() {
+    void delete_ok() {
         Long id = 1L;
         ResponseEntity<User> responseEntity = userController.delete(id);
         assertEquals(HttpStatus.NO_CONTENT, responseEntity.getStatusCode());
@@ -101,7 +101,7 @@ class UserControllerTest {
     }
 
     @Test
-    void getAllByBirthDateBetween() {
+    void getAllByBirthDateBetween_ok() {
         final LocalDate from = LocalDate.of(1998, 1, 1);
         final LocalDate to = LocalDate.of(2000, 1, 1);
         int page = 0;
