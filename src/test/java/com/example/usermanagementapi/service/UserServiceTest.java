@@ -18,14 +18,26 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.PropertySource;
 import org.springframework.data.domain.PageRequest;
 
+@SpringBootTest
+@PropertySource("classpath:application.properties")
 class UserServiceTest {
     private static final LocalDate CORRECT_BIRTHDAY_DATE = LocalDate.of(1995, 5, 2);
     private static final LocalDate INCORRECT_BIRTHDAY_DATE = LocalDate.of(2018, 5, 2);
     private User user;
     private UserRepository userRepository;
     private UserService userService;
+    private final int userAgeLimit;
+
+    @Autowired
+    public UserServiceTest(@Value("${user.age.limit}") int userAgeLimit) {
+        this.userAgeLimit = userAgeLimit;
+    }
 
     @BeforeEach
     void setUp() {
@@ -36,7 +48,7 @@ class UserServiceTest {
         user.setEmail("vladDuncan@gmail.com");
         user.setBirthDate(CORRECT_BIRTHDAY_DATE);
         userRepository = Mockito.mock(UserRepository.class);
-        userService = new UserServiceImpl(userRepository);
+        userService = new UserServiceImpl(userAgeLimit, userRepository);
     }
 
     @Test
@@ -50,15 +62,14 @@ class UserServiceTest {
         assertEquals("vladDuncan@gmail.com", actualUser.getEmail());
     }
 
-    //    @Test
-    //    void create_withAgeLessThanAvailable_notOk() {
-    //        String message = "Can't register the user who is younger than 18 years old";
-    //        user.setBirthDate(INCORRECT_BIRTHDAY_DATE);
-    //
-    //        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-    //                () -> userService.create(user));
-    //        assertEquals(message, exception.getMessage());
-    //    }
+    @Test
+    void create_withAgeLessThanAvailable_notOk() {
+        String message = "Can't register the user who is younger than 18 years old";
+        user.setBirthDate(INCORRECT_BIRTHDAY_DATE);
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> userService.create(user));
+        assertEquals(message, exception.getMessage());
+    }
 
     @Test
     void create_withAlreadyExistUser_notOk() {
@@ -123,20 +134,20 @@ class UserServiceTest {
         assertEquals(message, exception.getMessage());
     }
 
-    //    @Test
-    //    void update_withAgeLessThanAvailable_notOk() {
-    //        Long id = 1L;
-    //        User newUser = new User();
-    //        newUser.setBirthDate(INCORRECT_BIRTHDAY_DATE);
-    //        newUser.setFirstName("Victor");
-    //        newUser.setLastName("Don");
-    //        newUser.setEmail("VictorDon@gmail.com");
-    //        String message = "Can't register the user who is younger than 18 years old";
-    //        when(userRepository.findById(id)).thenReturn(Optional.of(user));
-    //        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-    //                () -> userService.update(newUser, id));
-    //        assertEquals(message, exception.getMessage());
-    //    }
+    @Test
+    void update_withAgeLessThanAvailable_notOk() {
+        User newUser = new User();
+        newUser.setBirthDate(INCORRECT_BIRTHDAY_DATE);
+        newUser.setFirstName("Victor");
+        newUser.setLastName("Don");
+        newUser.setEmail("VictorDon@gmail.com");
+        Long id = 1L;
+        String message = "Can't register the user who is younger than 18 years old";
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> userService.update(newUser, id));
+        assertEquals(message, exception.getMessage());
+    }
 
     @Test
     void delete_withNotExistId_notOk() {

@@ -6,23 +6,27 @@ import com.example.usermanagementapi.service.UserService;
 import jakarta.persistence.EntityNotFoundException;
 import java.time.LocalDate;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 @Service
-@RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
-    @Value("${user.age.limit}")
-    private int userAgeLimit;
+    private final int userAgeLimit;
     private final UserRepository userRepository;
+
+    @Autowired
+    public UserServiceImpl(@Value("${user.age.limit}") int userAgeLimit,
+                           UserRepository userRepository) {
+        this.userAgeLimit = userAgeLimit;
+        this.userRepository = userRepository;
+    }
 
     @Override
     public User create(User user) {
         if (userRepository.findUserByEmail(user.getEmail()).isEmpty()) {
-            LocalDate minimumRegistrationAge = LocalDate.now().minusYears(userAgeLimit);
-            if (user.getBirthDate().isBefore(minimumRegistrationAge)) {
+            if (isUserEligibleToRegister(user)) {
                 return userRepository.save(user);
             }
             throw new IllegalArgumentException("Can't register the user who is younger"
@@ -51,7 +55,11 @@ public class UserServiceImpl implements UserService {
         if (user.getPhoneNumber() != null) {
             oldUser.setPhoneNumber(user.getPhoneNumber());
         }
-        return userRepository.save(user);
+        if (isUserEligibleToRegister(user)) {
+            return userRepository.save(user);
+        }
+        throw new IllegalArgumentException("Can't register the user who is younger"
+                + " than 18 years old");
     }
 
     @Override
@@ -64,5 +72,10 @@ public class UserServiceImpl implements UserService {
     public List<User> getAllUsersByBirthDateBetween(LocalDate from, LocalDate to,
                                                     PageRequest pageRequest) {
         return userRepository.findByBirthDateBetween(from, to, pageRequest);
+    }
+
+    private boolean isUserEligibleToRegister(User user) {
+        LocalDate minimumRegistrationAge = LocalDate.now().minusYears(userAgeLimit);
+        return user.getBirthDate().isBefore(minimumRegistrationAge);
     }
 }
