@@ -12,6 +12,8 @@ public interface UserService {
 
     User update(User user, Long id);
 
+    User particularUpdateUser(User user, Long id);
+
     void delete(Long id);
 
     List<User> getAllUsersByBirthDateBetween(LocalDate from, LocalDate to, PageRequest pageRequest);

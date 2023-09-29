@@ -25,14 +25,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public User create(User user) {
-        if (userRepository.findUserByEmail(user.getEmail()).isEmpty()) {
-            if (isUserEligibleToRegister(user)) {
-                return userRepository.save(user);
-            }
-            throw new IllegalArgumentException("Can't register the user who is younger"
-                    + " than 18 years old");
-        }
-        throw new IllegalArgumentException("A user with this email already exists.");
+        return saveValidUser(user);
     }
 
     @Override
@@ -44,27 +37,20 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public User update(User user, Long id) {
+        get(id);
+        user.setId(id);
+        return saveValidUser(user);
+    }
+
+    @Override
+    public User particularUpdateUser(User user, Long id) {
         User oldUser = get(id);
-        oldUser.setFirstName(user.getFirstName());
-        oldUser.setLastName(user.getLastName());
-        oldUser.setEmail(user.getEmail());
-        oldUser.setBirthDate(user.getBirthDate());
-        if (user.getAddress() != null) {
-            oldUser.setAddress(user.getAddress());
-        }
-        if (user.getPhoneNumber() != null) {
-            oldUser.setPhoneNumber(user.getPhoneNumber());
-        }
-        if (isUserEligibleToRegister(user)) {
-            return userRepository.save(user);
-        }
-        throw new IllegalArgumentException("Can't register the user who is younger"
-                + " than 18 years old");
+        updateUserFieldsIfProvided(user, oldUser);
+        return saveValidUser(oldUser);
     }
 
     @Override
     public void delete(Long id) {
-        get(id);
         userRepository.deleteById(id);
     }
 
@@ -74,8 +60,38 @@ public class UserServiceImpl implements UserService {
         return userRepository.findByBirthDateBetween(from, to, pageRequest);
     }
 
-    private boolean isUserEligibleToRegister(User user) {
+    private User saveValidUser(User user) {
+        if (isValidUserAge(user)) {
+            return userRepository.save(user);
+        }
+        throw new IllegalArgumentException("Can't register the user who is younger"
+                + " than 18 years old");
+    }
+
+    private boolean isValidUserAge(User user) {
         LocalDate minimumRegistrationAge = LocalDate.now().minusYears(userAgeLimit);
-        return user.getBirthDate().isBefore(minimumRegistrationAge);
+        return user.getBirthDate().isEqual(minimumRegistrationAge)
+                || user.getBirthDate().isBefore(minimumRegistrationAge);
+    }
+
+    private void updateUserFieldsIfProvided(User user, User oldUser) {
+        if (user.getEmail() != null && !user.getEmail().isBlank()) {
+            oldUser.setEmail(user.getEmail());
+        }
+        if (user.getAddress() != null && !user.getAddress().isBlank()) {
+            oldUser.setAddress(user.getAddress());
+        }
+        if (user.getFirstName() != null && !user.getFirstName().isBlank()) {
+            oldUser.setFirstName(user.getFirstName());
+        }
+        if (user.getLastName() != null && !user.getLastName().isBlank()) {
+            oldUser.setLastName(user.getLastName());
+        }
+        if (user.getBirthDate() != null) {
+            oldUser.setBirthDate(user.getBirthDate());
+        }
+        if (user.getPhoneNumber() != null && !user.getPhoneNumber().isBlank()) {
+            oldUser.setPhoneNumber(user.getPhoneNumber());
+        }
     }
 }
