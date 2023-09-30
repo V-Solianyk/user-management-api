@@ -99,10 +99,7 @@ public class UserControllerTest {
         userRequestDto.setLastName(null);
         mvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().json("{\"type\":\"about:blank\",\"title\":\"Bad Request\""
-                        + ",\"status\":400,\"detail\":\"Failed to read request\",\"instance\""
-                        + ":\"/users\"}"));
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -111,16 +108,19 @@ public class UserControllerTest {
         mvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(userRequestDto)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json("{\"error_phoneNumber\":\"Invalid phone number"
+                        + " format\"}"));
     }
 
     @Test
     public void create_notValidEmail_notOk() throws Exception {
-        userRequestDto.setPhoneNumber("notValidEmail");
+        userRequestDto.setEmail("notValidEmail");
         mvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(userRequestDto)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json("{\"error_email\":\"Invalid email\"}"));
     }
 
     @Test
@@ -129,7 +129,8 @@ public class UserControllerTest {
         mvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(userRequestDto)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json("{\"error_firstName\":\"First name is required\"}"));
     }
 
     @Test
@@ -138,16 +139,18 @@ public class UserControllerTest {
         mvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(userRequestDto)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json("{\"error_firstName\":\"First name is required\"}"));
     }
 
     @Test
-    public void create_lastFirstName_notOk() throws Exception {
+    public void create_lastNameIsEmpty_notOk() throws Exception {
         userRequestDto.setLastName("");
         mvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(userRequestDto)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json("{\"error_lastName\":\"Last name is required\"}"));
     }
 
     @Test
@@ -156,7 +159,8 @@ public class UserControllerTest {
         mvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(userRequestDto)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json("{\"error_lastName\":\"Last name is required\"}"));
     }
 
     @Test
@@ -165,7 +169,9 @@ public class UserControllerTest {
         mvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(userRequestDto)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json("{\"error_birthDate\":\"Birth date must be in the"
+                        + " past\"}"));
     }
 
     @Test
@@ -222,16 +228,116 @@ public class UserControllerTest {
     }
 
     @Test
-    public void update_notValidInputDto_notOk() throws Exception {
+    public void update_notValidPhoneNumber_notOk() throws Exception {
+        final Long id = 1L;
+        userRequestDto.setPhoneNumber("0001");
+        when(requestDtoMapper.mapToModel(userRequestDto)).thenReturn(user);
+        user.setPhoneNumber(userRequestDto.getPhoneNumber());
+        when(userService.update(user, id)).thenReturn(user);
+        when(responseDtoMapper.mapToDto(user)).thenReturn(userResponseDto);
+        mvc.perform(put("/users/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(userRequestDto)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json("{\"error_phoneNumber\":\"Invalid phone number"
+                        + " format\"}"));
+    }
+
+    @Test
+    public void update_notValidEmail_notOk() throws Exception {
+        final Long id = 1L;
+        userRequestDto.setEmail("NotValidEmail");
+        when(requestDtoMapper.mapToModel(userRequestDto)).thenReturn(user);
+        user.setEmail(userRequestDto.getEmail());
+        when(userService.update(user, id)).thenReturn(user);
+        when(responseDtoMapper.mapToDto(user)).thenReturn(userResponseDto);
+        mvc.perform(put("/users/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(userRequestDto)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json("{\"error_email\":\"Invalid email\"}"));
+    }
+
+    @Test
+    public void update_emptyFirstName_notOk() throws Exception {
         final Long id = 1L;
         userRequestDto.setFirstName("");
+        when(requestDtoMapper.mapToModel(userRequestDto)).thenReturn(user);
+        user.setEmail(userRequestDto.getEmail());
+        when(userService.update(user, id)).thenReturn(user);
+        when(responseDtoMapper.mapToDto(user)).thenReturn(userResponseDto);
+        mvc.perform(put("/users/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(userRequestDto)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json("{\"error_firstName\":\"First name is required\"}"));
+    }
+
+    @Test
+    public void update_firstNameIsNull_notOk() throws Exception {
+        final Long id = 1L;
+        userRequestDto.setFirstName(null);
+        when(requestDtoMapper.mapToModel(userRequestDto)).thenReturn(user);
+        user.setEmail(userRequestDto.getEmail());
+        when(userService.update(user, id)).thenReturn(user);
+        when(responseDtoMapper.mapToDto(user)).thenReturn(userResponseDto);
+        mvc.perform(put("/users/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(userRequestDto)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json("{\"error_firstName\":\"First name is required\"}"));
+    }
+
+    @Test
+    public void update_lastNameIsEmpty_notOk() throws Exception {
+        final Long id = 1L;
         userRequestDto.setLastName("");
         when(requestDtoMapper.mapToModel(userRequestDto)).thenReturn(user);
-        user.setFirstName(userRequestDto.getFirstName());
         user.setLastName(userRequestDto.getLastName());
-        when(userService.update(user, id))
-                .thenThrow(IllegalArgumentException.class);
+        when(userService.update(user, id)).thenReturn(user);
+        when(responseDtoMapper.mapToDto(user)).thenReturn(userResponseDto);
+        mvc.perform(put("/users/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(userRequestDto)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json("{\"error_lastName\":\"Last name is required\"}"));
+    }
 
+    @Test
+    public void update_lastNameIsNull_notOk() throws Exception {
+        final Long id = 1L;
+        userRequestDto.setLastName(null);
+        when(requestDtoMapper.mapToModel(userRequestDto)).thenReturn(user);
+        user.setLastName(userRequestDto.getLastName());
+        when(userService.update(user, id)).thenReturn(user);
+        when(responseDtoMapper.mapToDto(user)).thenReturn(userResponseDto);
+        mvc.perform(put("/users/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(userRequestDto)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json("{\"error_lastName\":\"Last name is required\"}"));
+    }
+
+    @Test
+    public void update_invalidBirthDateFromFuture_notOk() throws Exception {
+        final Long id = 1L;
+        userRequestDto.setBirthDate(LocalDate.of(2100, 2,2));
+        when(requestDtoMapper.mapToModel(userRequestDto)).thenReturn(user);
+        user.setBirthDate(userRequestDto.getBirthDate());
+        when(userService.update(user, id)).thenReturn(user);
+        when(responseDtoMapper.mapToDto(user)).thenReturn(userResponseDto);
+        mvc.perform(put("/users/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(userRequestDto)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json("{\"error_birthDate\":\"Birth date must be in the"
+                        + " past\"}"));
+    }
+
+    @Test
+    public void update_notValidInputDto_notOk() throws Exception {
+        userRequestDto.setFirstName("");
+        userRequestDto.setLastName("");
         mvc.perform(put("/users/1")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest());
