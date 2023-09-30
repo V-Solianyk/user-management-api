@@ -10,7 +10,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
-    Optional<User> findUserByEmail(String email);
-
     List<User> findByBirthDateBetween(LocalDate fromDate, LocalDate toDate, Pageable pageable);
 }
