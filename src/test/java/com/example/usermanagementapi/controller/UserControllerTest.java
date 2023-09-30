@@ -1,10 +1,15 @@
 package com.example.usermanagementapi.controller;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.example.usermanagementapi.dto.UserRequestDto;
 import com.example.usermanagementapi.dto.UserResponseDto;
@@ -13,127 +18,318 @@ import com.example.usermanagementapi.mapper.UserResponseDtoMapper;
 import com.example.usermanagementapi.model.User;
 import com.example.usermanagementapi.service.UserService;
 import com.example.usermanagementapi.util.SortUtils;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.persistence.EntityNotFoundException;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
 
-class UserControllerTest {
+@WebMvcTest(UserController.class)
+@AutoConfigureMockMvc(addFilters = false)
+@ExtendWith(MockitoExtension.class)
+public class UserControllerTest {
     private static final LocalDate CORRECT_BIRTHDAY_DATE = LocalDate.of(1995, 5, 2);
-    private UserController userController;
-    private UserService userService;
-    private UserRequestDtoMapper requestDtoMapper;
-    private UserResponseDtoMapper responseDtoMapper;
-    private UserRequestDto userRequestDto;
     private UserResponseDto userResponseDto;
     private User user;
+    private UserRequestDto userRequestDto;
+    @Autowired
+    private MockMvc mvc;
+    @Autowired
+    private ObjectMapper objectMapper;
+    @MockBean
+    private UserService userService;
+    @MockBean
+    private UserRequestDtoMapper requestDtoMapper;
+    @MockBean
+    private UserResponseDtoMapper responseDtoMapper;
 
     @BeforeEach
-    void setUp() {
-        userRequestDto = new UserRequestDto();
-        userResponseDto = new UserResponseDto();
-        user = new User();
-        user.setId(1L);
-        user.setFirstName("Vlad");
-        user.setLastName("Duncan");
-        user.setEmail("vladDuncan@gmail.com");
-        user.setBirthDate(CORRECT_BIRTHDAY_DATE);
-        userService = Mockito.mock(UserService.class);
-        requestDtoMapper = Mockito.mock(UserRequestDtoMapper.class);
-        responseDtoMapper = Mockito.mock(UserResponseDtoMapper.class);
-        userController = new UserController(userService, requestDtoMapper, responseDtoMapper);
+    public void setUp() {
+        user = User.builder()
+                .id(1L)
+                .firstName("Vlad")
+                .lastName("TestingLastName")
+                .email("vladTest@com.ua")
+                .birthDate(CORRECT_BIRTHDAY_DATE).build();
+
+        userRequestDto = UserRequestDto.builder()
+                .firstName(user.getLastName())
+                .lastName(user.getLastName())
+                .email(user.getEmail())
+                .birthDate(CORRECT_BIRTHDAY_DATE).build();
+
+        userResponseDto = UserResponseDto.builder()
+                .id(user.getId())
+                .firstName(user.getLastName())
+                .lastName(user.getLastName())
+                .email(user.getEmail())
+                .birthDate(CORRECT_BIRTHDAY_DATE).build();
     }
 
     @Test
-    void create_ok() {
+    public void create_ok() throws Exception {
         when(requestDtoMapper.mapToModel(userRequestDto)).thenReturn(user);
         when(userService.create(user)).thenReturn(user);
         when(responseDtoMapper.mapToDto(user)).thenReturn(userResponseDto);
-        ResponseEntity<UserResponseDto> responseEntity = userController.create(userRequestDto);
-        assertEquals(HttpStatus.CREATED, responseEntity.getStatusCode());
-        assertEquals(userResponseDto, responseEntity.getBody());
+        mvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(userResponseDto)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(userResponseDto.getId()))
+                .andExpect(jsonPath("$.firstName").value(userResponseDto.getFirstName()))
+                .andExpect(jsonPath("$.lastName").value(userResponseDto.getLastName()))
+                .andExpect(jsonPath("$.email").value(userResponseDto.getEmail()))
+                .andExpect(jsonPath("$.birthDate").value(userResponseDto.getBirthDate()
+                        .toString()));
     }
 
     @Test
-    void get_ok() {
+    public void create_notValidInputDto_notOk() throws Exception {
+        userRequestDto.setFirstName("");
+        userRequestDto.setLastName(null);
+        mvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json("{\"type\":\"about:blank\",\"title\":\"Bad Request\""
+                        + ",\"status\":400,\"detail\":\"Failed to read request\",\"instance\""
+                        + ":\"/users\"}"));
+    }
+
+    @Test
+    public void create_notValidPhoneNumber_notOk() throws Exception {
+        userRequestDto.setPhoneNumber("0001");
+        mvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(userRequestDto)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void create_notValidEmail_notOk() throws Exception {
+        userRequestDto.setPhoneNumber("notValidEmail");
+        mvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(userRequestDto)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void create_emptyFirstName_notOk() throws Exception {
+        userRequestDto.setFirstName("");
+        mvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(userRequestDto)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void create_firstNameIsNull_notOk() throws Exception {
+        userRequestDto.setFirstName(null);
+        mvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(userRequestDto)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void create_lastFirstName_notOk() throws Exception {
+        userRequestDto.setLastName("");
+        mvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(userRequestDto)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void create_lastNameIsNull_notOk() throws Exception {
+        userRequestDto.setLastName(null);
+        mvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(userRequestDto)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void create_invalidBirthDateFromFuture_notOk() throws Exception {
+        userRequestDto.setBirthDate(LocalDate.of(2050, 1, 5));
+        mvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(userRequestDto)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void create_validPhoneNumber_ok() throws Exception {
+        userRequestDto.setPhoneNumber("380961276845");
+        mvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(userRequestDto)))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    public void get_ok() throws Exception {
         Long id = 1L;
         when(userService.get(id)).thenReturn(user);
         when(responseDtoMapper.mapToDto(user)).thenReturn(userResponseDto);
-        ResponseEntity<UserResponseDto> responseEntity = userController.get(id);
-        assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
-        assertEquals(userResponseDto, responseEntity.getBody());
+        mvc.perform(get("/users/1")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(userResponseDto.getId()))
+                .andExpect(jsonPath("$.firstName").value(userResponseDto.getFirstName()))
+                .andExpect(jsonPath("$.lastName").value(userResponseDto.getLastName()))
+                .andExpect(jsonPath("$.email").value(userResponseDto.getEmail()))
+                .andExpect(jsonPath("$.birthDate").value(userResponseDto.getBirthDate()
+                        .toString()));
     }
 
     @Test
-    void update_ok() {
+    public void get_notNotExistUserByIndex_notOk() throws Exception {
+        Long id = 888L;
+        when(userService.get(id))
+                .thenThrow(EntityNotFoundException.class);
+        mvc.perform(get("/users/888")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    public void update_ok() throws Exception {
         Long id = 1L;
         when(requestDtoMapper.mapToModel(userRequestDto)).thenReturn(user);
         when(userService.update(user, id)).thenReturn(user);
         when(responseDtoMapper.mapToDto(user)).thenReturn(userResponseDto);
-        ResponseEntity<UserResponseDto> responseEntity = userController
-                .update(id, userRequestDto);
-        assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
-        assertEquals(userResponseDto, responseEntity.getBody());
+        mvc.perform(put("/users/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(userRequestDto)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(userResponseDto.getId()))
+                .andExpect(jsonPath("$.firstName").value(userResponseDto.getFirstName()))
+                .andExpect(jsonPath("$.lastName").value(userResponseDto.getLastName()))
+                .andExpect(jsonPath("$.email").value(userResponseDto.getEmail()))
+                .andExpect(jsonPath("$.birthDate").value(userResponseDto.getBirthDate()
+                        .toString()));
     }
 
     @Test
-    void particularUpdateUser_ok() {
+    public void update_notValidInputDto_notOk() throws Exception {
+        final Long id = 1L;
+        userRequestDto.setFirstName("");
+        userRequestDto.setLastName("");
+        when(requestDtoMapper.mapToModel(userRequestDto)).thenReturn(user);
+        user.setFirstName(userRequestDto.getFirstName());
+        user.setLastName(userRequestDto.getLastName());
+        when(userService.update(user, id))
+                .thenThrow(IllegalArgumentException.class);
+
+        mvc.perform(put("/users/1")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void partiallyUpdateUser_ok() throws Exception {
         Long id = 1L;
         when(requestDtoMapper.mapToModel(userRequestDto)).thenReturn(user);
         when(userService.particularUpdateUser(user, id)).thenReturn(user);
         when(responseDtoMapper.mapToDto(user)).thenReturn(userResponseDto);
-        ResponseEntity<UserResponseDto> responseEntity = userController
-                .partiallyUpdateUser(id, userRequestDto);
-        assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
-        assertEquals(userResponseDto, responseEntity.getBody());
+        mvc.perform(patch("/users/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(userResponseDto)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(userResponseDto.getId()))
+                .andExpect(jsonPath("$.firstName").value(userResponseDto.getFirstName()))
+                .andExpect(jsonPath("$.lastName").value(userResponseDto.getLastName()))
+                .andExpect(jsonPath("$.email").value(userResponseDto.getEmail()))
+                .andExpect(jsonPath("$.birthDate").value(userResponseDto.getBirthDate()
+                        .toString()));
     }
 
     @Test
-    void delete_ok() {
+    public void delete_ok() throws Exception {
         Long id = 1L;
-        ResponseEntity<User> responseEntity = userController.delete(id);
-        assertEquals(HttpStatus.NO_CONTENT, responseEntity.getStatusCode());
-        verify(userService, times(1)).delete(id);
+        userService.delete(id);
+        mvc.perform(delete("/users/1")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNoContent());
     }
 
     @Test
-    void getAllByBirthDateBetween_ok() {
+    public void getAllByBirthDateBetween_ok() throws Exception {
         final LocalDate from = LocalDate.of(1998, 1, 1);
-        final LocalDate to = LocalDate.of(2000, 1, 1);
+        final LocalDate to = LocalDate.of(2005, 1, 1);
         int page = 0;
         int count = 10;
         final String sortBy = "id";
         final PageRequest pageRequest = PageRequest.of(page, count, SortUtils.createSort(sortBy));
 
-        User secondUser = new User();
-        secondUser.setId(2L);
-        secondUser.setBirthDate(LocalDate.of(1999, 5, 2));
+        User secondUser = User.builder()
+                .id(2L)
+                .birthDate(LocalDate.of(1999, 10, 3))
+                .build();
 
-        User thirdUser = new User();
-        thirdUser.setId(3L);
-        thirdUser.setBirthDate(LocalDate.of(1998, 5, 2));
+        User thirdUser = User.builder()
+                .id(3L)
+                .birthDate(LocalDate.of(2001, 2, 3))
+                .build();
 
-        List<User> users = List.of(secondUser, thirdUser);
+        final List<User> users = List.of(secondUser, thirdUser);
         UserResponseDto userResponseDtoSecond = new UserResponseDto();
         userResponseDtoSecond.setId(secondUser.getId());
+        userResponseDtoSecond.setBirthDate(secondUser.getBirthDate());
+
         UserResponseDto userResponseDtoThird = new UserResponseDto();
         userResponseDtoThird.setId(thirdUser.getId());
+        userResponseDtoThird.setBirthDate(thirdUser.getBirthDate());
+
         List<UserResponseDto> userResponseDtos = List.of(userResponseDtoSecond,
                 userResponseDtoThird);
-        when(userService.getAllUsersByBirthDateBetween(from, to, pageRequest))
-                .thenReturn(users);
+        when(userService.getAllUsersByBirthDateBetween(from, to, pageRequest)).thenReturn(users);
         when(responseDtoMapper.mapToDto(users.get(0))).thenReturn(userResponseDtos.get(0));
         when(responseDtoMapper.mapToDto(users.get(1))).thenReturn(userResponseDtos.get(1));
-        ResponseEntity<List<UserResponseDto>> responseEntity = userController
-                .getAllByBirthDateBetween(count, page, sortBy, from, to);
-        assertNotNull(responseEntity.getBody());
-        assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
-        assertEquals(userResponseDtos, responseEntity.getBody());
-        assertEquals(userResponseDtos.size(), responseEntity.getBody().size());
-        assertEquals(3L, responseEntity.getBody().get(1).getId());
+        mvc.perform(get("/users")
+                        .param("from", from.toString())
+                        .param("to", to.toString())
+                        .param("count", "10")
+                        .param("page", "0")
+                        .param("sortBy", "id"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.size()").value(userResponseDtos.size()))
+                .andExpect(jsonPath("$[0].id").value(userResponseDtos.get(0).getId()))
+                .andExpect(jsonPath("$[0].birthDate").value(userResponseDtos.get(0)
+                        .getBirthDate().toString()));
+    }
+
+    @Test
+    public void getAllByBirthDateBetween_inputDateIncorrect_ok() throws Exception {
+        final LocalDate from = LocalDate.of(2001, 1, 1);
+        final LocalDate to = LocalDate.of(1999, 1, 1);
+        int page = 0;
+        int count = 10;
+        final String sortBy = "id";
+        final PageRequest pageRequest = PageRequest.of(page, count, SortUtils.createSort(sortBy));
+
+        when(userService.getAllUsersByBirthDateBetween(from, to, pageRequest))
+                .thenThrow(IllegalArgumentException.class);
+        mvc.perform(get("/users")
+                        .param("from", from.toString())
+                        .param("to", to.toString())
+                        .param("count", "10")
+                        .param("page", "0")
+                        .param("sortBy", "id"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(containsString("{\"httpStatus\":\"BAD_REQUEST\""
+                        + ",\"errorMessage\":\"\\\"from\\\" date should be before "
+                        + "\\\"to\\\" date.\"}")));
     }
 }
